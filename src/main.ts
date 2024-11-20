@@ -6,14 +6,13 @@ import "./style.css";
 import "./leafletWorkaround.ts";
 import luck from "./luck.ts";
 import { point, tooltip } from "npm:@types/leaflet@^1.9.14";
-
+import { Board } from "./board.ts"
 // ----------------------------Classes/interfaces
 
 
 interface Player{
-  i: number;
-  j: number;
-  points: number;
+  position: leaflet.LatLng;
+  coins: Coin[];
   marker: leaflet.marker;
 }
 
@@ -24,19 +23,19 @@ interface Cell{
 
 
 interface Coin{
-  cell: Cell;
-  serial: number;
+  serial: string;
 }
 
 interface Cache {
-  coins: number
+  coins: Coin[]
 }
 
 
 
 // ---------------------------CONSTANTS and Element References
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
-const startPos= [36.98949379578401, -122.06277128548504]
+const WORLD_ORIGIN = leaflet.latLng(0,0)
+const startPos= OAKES_CLASSROOM
 
 
 
@@ -73,13 +72,12 @@ leaflet
 
 
   
-// ---------------------------------------SET UP PLAYER
+// ---------------------------------------SET UP PLAYER AND BOARD
 
 const player :Player = {
-  points: 0,
-  i: startPos[0],
-  j: startPos[1],
-  marker: leaflet.marker(leaflet.latLng(startPos[0], startPos[1]), {
+  position: startPos,
+  coins: [],
+  marker: leaflet.marker(startPos, {
     tooltip: "That's you!"
   }).addTo(map),
 }
@@ -87,16 +85,16 @@ const player :Player = {
 
 
 
-
+const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
 
 
 
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   const cache: Cache =  {
-    coins: 0
+    coins: []
   }
-  const origin = OAKES_CLASSROOM;
+  const origin = WORLD_ORIGIN;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
@@ -108,7 +106,14 @@ function spawnCache(i: number, j: number) {
   // Handle interactions with the cache
   rect.bindPopup(() => {
     let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-    cache.coins = pointValue;
+
+    //add the coins
+    for (let id = 0; id < pointValue; id ++){
+      cache.coins.push( {
+        serial: i.toString()+ ':' + j.toString() + '#' + id.toString()
+      })
+    }
+
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
                 <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
@@ -121,27 +126,26 @@ function spawnCache(i: number, j: number) {
         if (pointValue <= 0) {
           return;
         }
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        player.points++;
-        statusPanel.innerHTML = `${player.points} points accumulated`;
+        const taken = cache.coins.pop();
+        if (taken){
+          player.coins.push(taken);
+        }
+        statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+        console.log(player.coins)
       });
 
     return popupDiv;
   });
 }
 
-// Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
-    }
+
+
+const localCells = board.getCellsNearPoint(player.position);
+for (const cell of localCells ){
+  if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
+    spawnCache(cell.i, cell.j);
   }
 }
-
 
 
 
@@ -149,7 +153,7 @@ for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
 const playerMoved = new CustomEvent('player-moved', {});
 
 document.addEventListener('locationUpdate', ()=> {
-  player.marker.setLatLng(player.i,player.j);
+  player.marker.setLatLng(player.position);
 
   // call me like this 
   //document.dispatchEvent(playerMoved);
