@@ -14,6 +14,7 @@ interface Player{
   position: leaflet.LatLng;
   coins: Coin[];
   marker: leaflet.marker;
+  move(direction: string) : void
 }
 
 interface Cell{
@@ -38,7 +39,6 @@ const WORLD_ORIGIN = leaflet.latLng(0,0)
 const startPos= OAKES_CLASSROOM
 
 
-
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -49,7 +49,12 @@ const CACHE_SPAWN_PROBABILITY = 0.1;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
 
-
+for (const id of ["north", "south", "east", "west"]){
+  const button = document.getElementById(id)
+  button && button.addEventListener("click",()=>{
+    player.move(id)
+  })
+}
 
 // ---------------------------- SET UP MAP
 const map = leaflet.map(document.getElementById("map")!, {
@@ -80,9 +85,24 @@ const player :Player = {
   marker: leaflet.marker(startPos, {
     tooltip: "That's you!"
   }).addTo(map),
+
+  move(direction){
+    const dirToVector: Dictionary = {
+      "north": [0,1],
+      "south" : [0,-1],
+      "east" : [1, 0],
+      "west": [-1,0]
+    }
+    const currentPosition = player.position
+    console.log('pos',currentPosition)
+    console.log('lat',currentPosition.lat)
+    const lat = currentPosition.lat + dirToVector[direction][1] * TILE_DEGREES;
+    const lng = currentPosition.lng + dirToVector[direction][0] * TILE_DEGREES;
+    console.log('new lat',lat)
+    player.position = leaflet.latLng(lat, lng)
+    document.dispatchEvent(playerMoved)
+  }
 }
-
-
 
 
 const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
@@ -90,6 +110,10 @@ const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
 
 
 // Add caches to the map by cell numbers
+
+updateCache()
+
+// -------------------------------HELPER FUNCTIONS
 function spawnCache(i: number, j: number) {
   const cache: Cache =  {
     coins: []
@@ -131,7 +155,6 @@ function spawnCache(i: number, j: number) {
           player.coins.push(taken);
         }
         statusPanel.innerHTML = `${player.coins.length} points accumulated`;
-        console.log(player.coins)
       });
 
     return popupDiv;
@@ -140,10 +163,15 @@ function spawnCache(i: number, j: number) {
 
 
 
-const localCells = board.getCellsNearPoint(player.position);
-for (const cell of localCells ){
-  if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
-    spawnCache(cell.i, cell.j);
+
+
+
+function updateCache(){
+  const localCells = board.getCellsNearPoint(player.position);
+  for (const cell of localCells ){
+    if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
+      spawnCache(cell.i, cell.j);
+    }
   }
 }
 
@@ -152,9 +180,16 @@ for (const cell of localCells ){
 // -----------------------------------------EVENTS
 const playerMoved = new CustomEvent('player-moved', {});
 
-document.addEventListener('locationUpdate', ()=> {
+document.addEventListener('player-moved', ()=> {
   player.marker.setLatLng(player.position);
-
+  map.panTo(player.position)
+  // updateCache()
   // call me like this 
   //document.dispatchEvent(playerMoved);
 });
+
+
+// adding dictionary cause type script doesn't have dictionaries??
+interface Dictionary {
+  [key: string]: number[]; // keys are strings, values are numbers
+}
