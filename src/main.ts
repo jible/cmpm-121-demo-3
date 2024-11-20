@@ -5,13 +5,40 @@ import "leaflet/dist/leaflet.css";
 import "./style.css";
 import "./leafletWorkaround.ts";
 import luck from "./luck.ts";
+import { point, tooltip } from "npm:@types/leaflet@^1.9.14";
 
-// ----------------------------Classes
+// ----------------------------Classes/interfaces
+
+
+interface Player{
+  i: number;
+  j: number;
+  points: number;
+  marker: leaflet.marker;
+}
+
+interface Cell{
+  i:number;
+  j:number;
+}
+
+
+interface Coin{
+  cell: Cell;
+  serial: number;
+}
+
+interface Cache {
+  coins: number
+}
 
 
 
 // ---------------------------CONSTANTS and Element References
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
+const startPos= [36.98949379578401, -122.06277128548504]
+
+
 
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -19,7 +46,13 @@ const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
-// Create the map (element with id "map" is defined in index.html)
+
+const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
+statusPanel.innerHTML = "No points yet...";
+
+
+
+// ---------------------------- SET UP MAP
 const map = leaflet.map(document.getElementById("map")!, {
   center: OAKES_CLASSROOM,
   zoom: GAMEPLAY_ZOOM_LEVEL,
@@ -38,35 +71,44 @@ leaflet
   })
   .addTo(map);
 
-// Add a marker to represent the player
-const playerMarker = leaflet.marker(OAKES_CLASSROOM);
-playerMarker.bindTooltip("That's you!");
-playerMarker.addTo(map);
 
-// Display the player's points
-let playerPoints = 0;
-const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
-statusPanel.innerHTML = "No points yet...";
+  
+// ---------------------------------------SET UP PLAYER
+
+const player :Player = {
+  points: 0,
+  i: startPos[0],
+  j: startPos[1],
+  marker: leaflet.marker(leaflet.latLng(startPos[0], startPos[1]), {
+    tooltip: "That's you!"
+  }).addTo(map),
+}
+
+
+
+
+
+
+
 
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
-  // Convert cell numbers into lat/lng bounds
+  const cache: Cache =  {
+    coins: 0
+  }
   const origin = OAKES_CLASSROOM;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
   ]);
 
-  // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
 
   // Handle interactions with the cache
   rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
     let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-
-    // The popup offers a description and button
+    cache.coins = pointValue;
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
                 <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
@@ -76,11 +118,14 @@ function spawnCache(i: number, j: number) {
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
+        if (pointValue <= 0) {
+          return;
+        }
         pointValue--;
         popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
           pointValue.toString();
-        playerPoints++;
-        statusPanel.innerHTML = `${playerPoints} points accumulated`;
+        player.points++;
+        statusPanel.innerHTML = `${player.points} points accumulated`;
       });
 
     return popupDiv;
@@ -96,3 +141,16 @@ for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
     }
   }
 }
+
+
+
+
+// -----------------------------------------EVENTS
+const playerMoved = new CustomEvent('player-moved', {});
+
+document.addEventListener('locationUpdate', ()=> {
+  player.marker.setLatLng(player.i,player.j);
+
+  // call me like this 
+  //document.dispatchEvent(playerMoved);
+});
