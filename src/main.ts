@@ -29,12 +29,16 @@ interface Coin{
 
 interface Cache {
   coins: number
+  rect: leaflet.rectangle
 }
 function toMemento(cache: Cache){
   return(cache.coins.toString());
 }
 function fromMemento(memento:string): Cache{
-  return ({coins: parseInt(memento)})
+  return ({
+    coins: parseInt(memento),
+    rect: null
+  })
 }
 
 
@@ -52,7 +56,7 @@ const CACHE_SPAWN_PROBABILITY = 0.1;
 
 const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
 const cacheCollection:Map<string,string> = new Map();
-
+const loadedCaches:Cache[] = [];
 
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
@@ -118,32 +122,45 @@ const player :Player = {
 
 // Add caches to the map by cell numbers
 
-updateCache()
+updateDisplayedCaches()
 
 
 
 function loadCache(i: number, j: number): Cache{
   const key = i.toString()+":"+j.toString();
   const entry = cacheCollection.get(key);
-  if (!entry){
-    // generate a new cache
-    return( generateCache(i,j))
+  if (entry){
+    return( fromMemento(entry));
+    
   }
-  return( fromMemento(entry));
-  // otherwise return the old cache.
+  return( generateCache(i,j))
 }
 
-function generateCache(i: number, j:number){
+function generateCache(i: number, j:number) : Cache{
   const pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-  const cache = {coins:pointValue};
+  const cache = {
+    coins:pointValue,
+    rect:null
+  };
   return(cache)
 
 }
 
 
+function saveCache(i:number, j:number, cache:Cache){
+  const key = i.toString()+":"+j.toString();
+  cacheCollection.set(key, toMemento(cache));
+
+}
+
 // -------------------------------HELPER FUNCTIONS
 function spawnCache(i: number, j: number) {
   const cache = loadCache(i,j);
+  makeCacheRect(i,j,cache);
+}
+
+
+function makeCacheRect(i: number, j: number, cache:Cache){
   const origin = WORLD_ORIGIN;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
@@ -151,6 +168,7 @@ function spawnCache(i: number, j: number) {
   ]);
 
   const rect = leaflet.rectangle(bounds);
+  cache.rect = rect;
   rect.addTo(map);
 
   // Handle interactions with the cache
@@ -182,9 +200,7 @@ function spawnCache(i: number, j: number) {
 
 
 
-
-
-function updateCache(){
+function updateDisplayedCaches(){
   const localCells = board.getCellsNearPoint(player.position);
   for (const cell of localCells ){
     if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
