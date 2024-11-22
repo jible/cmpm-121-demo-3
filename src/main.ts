@@ -158,7 +158,7 @@ function spawnCache(i: number, j: number) {
           serial: i.toString() + ":" + j.toString() + '#' + pointValue.toString()
         }
         player.coins.push(coin);
-        popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
+        popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache.coins.toString();
         statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       });
 
