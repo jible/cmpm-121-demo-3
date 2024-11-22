@@ -27,20 +27,15 @@ interface Coin{
   serial: string;
 }
 
-class Cache {
-  coins: number|string;
-  constructor(coins: number ){
-    this.coins = coins;
-  }
-
-  toMomento(){
-    this.coins = this.coins.toString()
-  }
-  fromMomento(momento:string){
-    this.coins = parseInt(momento);
-  }
+interface Cache {
+  coins: number
 }
-
+function toMemento(cache: Cache){
+  return(cache.coins.toString());
+}
+function fromMemento(memento:string): Cache{
+  return ({coins: parseInt(memento)})
+}
 
 
 // ---------------------------CONSTANTS and Element References
@@ -54,6 +49,9 @@ const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
+
+const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
+const cacheCollection:Map<string,string> = new Map();
 
 
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
@@ -115,7 +113,6 @@ const player :Player = {
 }
 
 
-const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
 
 
 
@@ -123,9 +120,30 @@ const board = new Board(TILE_DEGREES,NEIGHBORHOOD_SIZE);
 
 updateCache()
 
+
+
+function loadCache(i: number, j: number): Cache{
+  const key = i.toString()+":"+j.toString();
+  const entry = cacheCollection.get(key);
+  if (!entry){
+    // generate a new cache
+    return( generateCache(i,j))
+  }
+  return( fromMemento(entry));
+  // otherwise return the old cache.
+}
+
+function generateCache(i: number, j:number){
+  const pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+  const cache = {coins:pointValue};
+  return(cache)
+
+}
+
+
 // -------------------------------HELPER FUNCTIONS
 function spawnCache(i: number, j: number) {
-  
+  const cache = loadCache(i,j);
   const origin = WORLD_ORIGIN;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
@@ -137,10 +155,6 @@ function spawnCache(i: number, j: number) {
 
   // Handle interactions with the cache
   rect.bindPopup(() => {
-    const pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-    const cache = new Cache(pointValue);
-    
-
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
 
@@ -148,14 +162,13 @@ function spawnCache(i: number, j: number) {
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
-        if ( typeof(cache.coins) == 'number' && cache.coins  <= 0) {
+        if ( cache.coins  <= 0) {
           return;
         }
-        if ( typeof(cache.coins) == 'number') {
-          cache.coins-=1;
-        }
+        cache.coins-=1;
+        
         const coin : Coin ={
-          serial: i.toString() + ":" + j.toString() + '#' + pointValue.toString()
+          serial: i.toString() + ":" + j.toString() + '#' + cache.coins.toString()
         }
         player.coins.push(coin);
         popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache.coins.toString();
