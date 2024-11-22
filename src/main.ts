@@ -27,8 +27,18 @@ interface Coin{
   serial: string;
 }
 
-interface Cache {
-  coins: Coin[]
+class Cache {
+  coins: number|string;
+  constructor(coins: number ){
+    this.coins = coins;
+  }
+
+  toMomento(){
+    this.coins = this.coins.toString()
+  }
+  fromMomento(momento:string){
+    this.coins = parseInt(momento);
+  }
 }
 
 
@@ -115,9 +125,7 @@ updateCache()
 
 // -------------------------------HELPER FUNCTIONS
 function spawnCache(i: number, j: number) {
-  const cache: Cache =  {
-    coins: []
-  }
+  
   const origin = WORLD_ORIGIN;
   const bounds = leaflet.latLngBounds([
     [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
@@ -129,31 +137,28 @@ function spawnCache(i: number, j: number) {
 
   // Handle interactions with the cache
   rect.bindPopup(() => {
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-
-    //add the coins
-    for (let id = 0; id < pointValue; id ++){
-      cache.coins.push( {
-        serial: i.toString()+ ':' + j.toString() + '#' + id.toString()
-      })
-    }
+    const pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+    const cache = new Cache(pointValue);
+    
 
     const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button>`;
+    popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
 
     // Clicking the button decrements the cache's value and increments the player's points
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
-        if (pointValue <= 0) {
+        if ( typeof(cache.coins) == 'number' && cache.coins  <= 0) {
           return;
         }
-        const taken = cache.coins.pop();
-        if (taken){
-          player.coins.push(taken);
+        if ( typeof(cache.coins) == 'number') {
+          cache.coins-=1;
         }
+        const coin : Coin ={
+          serial: i.toString() + ":" + j.toString() + '#' + pointValue.toString()
+        }
+        player.coins.push(coin);
+        popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
         statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       });
 
