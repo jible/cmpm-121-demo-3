@@ -49,7 +49,6 @@ const NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
-const cacheCollection: Map<string, string> = new Map();
 let loadedCaches: Cache[] = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
@@ -76,6 +75,9 @@ realPositionButton && realPositionButton.addEventListener("click", () =>{
     realPositionButton.classList.remove("highlight");
   }
 })
+
+const resetButton = document.getElementById("reset");
+
 
 
 // ---------------------------- SET UP MAP
@@ -155,7 +157,7 @@ function fromMemento(memento: string, i:number, j:number): Cache {
 
 function loadCache(i: number, j: number): Cache {
   const key = getCacheKey(i,j)
-  const entry = cacheCollection.get(key);
+  const entry = localStorage.getItem(key);
   if (entry) {
     return fromMemento(entry,i,j);
   }
@@ -177,7 +179,7 @@ function generateCache(i: number, j: number): Cache {
 
 function saveCache(cache: Cache) {
   const key = getCacheKey(cache.i,cache.j)
-  cacheCollection.set(key, toMemento(cache));
+  localStorage.setItem(key, toMemento(cache));
 }
 
 
@@ -266,8 +268,6 @@ function update(): void{
     currentFrame = currentFrame%10;
     console.log("Frame updated");
     if ( realPositionMode ){
-      // get player position. If it is more than half of a cell away from the current position,
-      // the position there and emit update position signal
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const trueLat = position.coords.latitude; // Latitude of the player
@@ -278,14 +278,11 @@ function update(): void{
             player.position = leaflet.latLng(trueLat,trueLng);
             document.dispatchEvent(playerMoved);
           }
-
-
         },
         (error) => {
           console.error("Error fetching location", error);
         }
       );
-
     }
   }
   requestAnimationFrame(update);
