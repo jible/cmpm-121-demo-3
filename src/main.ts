@@ -248,6 +248,7 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
             cache.coins.toString(),
         };
         player.coins.push(coin);
+        savePlayerCoins();
         popupDiv.querySelector<HTMLSpanElement>(
           "#value"
         )!.textContent = cache.coins.toString();
@@ -300,6 +301,30 @@ function updateDisplayedCaches() {
 }
 
 
+function loadPlayerCoins(){
+  for ( let i = 0;true;i++){
+    const key = getCoinKey(i);
+    const coin = localStorage.getItem(key);
+    if (!coin){ 
+      const statusPanel = document.getElementById("statusPanel");
+      if (statusPanel)statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+      break;
+    }
+    player.coins.push({serial:coin});
+  }
+}
+
+function savePlayerCoins(){
+  for ( let i = 0; i <player.coins.length;i++){
+    const key = getCoinKey(i);
+    localStorage.setItem(key, player.coins[i].serial);
+  }
+}
+
+function getCoinKey(i: number){
+  return `coin${i}`
+}
+
 function getCacheKey(i:number,j:number): string{
   return `${i}:${j}`
 }
@@ -343,6 +368,7 @@ function update(): void{
 
 
 // The actual play cycle
+loadPlayerCoins();
 polyLineData.push([player.position.lat, player.position.lng]); // Starting position
 currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
 updateDisplayedCaches();
