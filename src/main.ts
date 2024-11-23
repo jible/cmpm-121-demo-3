@@ -77,7 +77,14 @@ realPositionButton && realPositionButton.addEventListener("click", () =>{
 })
 
 const resetButton = document.getElementById("reset");
-
+resetButton && resetButton.addEventListener("click", () => {
+  const sign = confirm("Are you sure you want to delete all of your saved data?")
+  if (sign){
+    console.log(sign)
+    localStorage.clear();
+    document.dispatchEvent(gameReset);
+  }
+})
 
 
 // ---------------------------- SET UP MAP
@@ -137,9 +144,13 @@ document.addEventListener("player-moved", () => {
 
 
 const enterSensorMode = new CustomEvent("sensor-mode", {});
-document.addEventListener("sensor-mode", () => {
-  
+document.addEventListener("sensor-mode", () => {});
+
+const gameReset = new CustomEvent("game-reset", {});
+document.addEventListener("game-reset", () => {
+  discardGameState();
 });
+
 // -------------------------------FUNCTIONS
 
 function toMemento(cache: Cache) {
@@ -230,6 +241,23 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
 }
 
 
+function discardGameState() {
+  // Remove current caches 
+  player.coins = [];
+  statusPanel.innerHTML = "No points yet...";
+  for (const cache of loadedCaches){
+    cache.rect.remove(); // Removes the rectangle from the Leaflet map
+  }
+  loadedCaches = [];
+
+  const localCells = board.getCellsNearPoint(player.position);
+  for (const cell of localCells) {
+    if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
+      loadedCaches.push( spawnCache(cell.i, cell.j) );
+    }
+  }
+}
+
 function updateDisplayedCaches() {
   // Remove current caches 
   for (let cache of loadedCaches){
@@ -266,7 +294,6 @@ function update(): void{
   // This is a funny way of doing this but i figured its pretty expensive to do it every frame. 
   if (currentFrame > 10){
     currentFrame = currentFrame%10;
-    console.log("Frame updated");
     if ( realPositionMode ){
       navigator.geolocation.getCurrentPosition(
         (position) => {
