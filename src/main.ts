@@ -24,7 +24,9 @@ interface Cell {
 interface Coin {
   serial: string;
 }
-interface Cache {
+interface Cache { 
+  i: number,
+  j: number,
   coins: number;
   rect: leaflet.rectangle;
 }
@@ -48,7 +50,7 @@ const CACHE_SPAWN_PROBABILITY = 0.1;
 
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 const cacheCollection: Map<string, string> = new Map();
-const loadedCaches: Map<string, Cache> = new Map();
+let loadedCaches: Cache[] = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
 
@@ -113,7 +115,7 @@ const playerMoved = new CustomEvent("player-moved", {});
 document.addEventListener("player-moved", () => {
   player.marker.setLatLng(player.position);
   map.panTo(player.position);
-  // updateCache();
+  updateDisplayedCaches();
 });
 
 // -------------------------------FUNCTIONS
@@ -122,8 +124,10 @@ function toMemento(cache: Cache) {
   return cache.coins.toString();
 }
 
-function fromMemento(memento: string): Cache {
+function fromMemento(memento: string, i:number, j:number): Cache {
   return {
+    i:i,
+    j:j,
     coins: parseInt(memento),
     rect: null,
   };
@@ -133,7 +137,7 @@ function loadCache(i: number, j: number): Cache {
   const key = i.toString() + ":" + j.toString();
   const entry = cacheCollection.get(key);
   if (entry) {
-    return fromMemento(entry);
+    return fromMemento(entry,i,j);
   }
   return generateCache(i, j);
 }
@@ -143,22 +147,24 @@ function generateCache(i: number, j: number): Cache {
     luck([i, j, "initialValue"].toString()) * 100
   );
   const cache = {
+    i: i,
+    j: j,
     coins: pointValue,
     rect: null,
   };
   return cache;
 }
 
-function saveCache(i: number, j: number, cache: Cache) {
-  const key = i.toString() + ":" + j.toString();
+function saveCache(cache: Cache) {
+  const key = cache.i.toString() + ":" + cache.j.toString();
   cacheCollection.set(key, toMemento(cache));
 }
-
 
 
 function spawnCache(i: number, j: number) {
   const cache = loadCache(i, j);
   makeCacheRect(i, j, cache);
+  return (cache);
 }
 
 function makeCacheRect(i: number, j: number, cache: Cache) {
@@ -204,10 +210,16 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
 
 function updateDisplayedCaches() {
   // Remove current caches 
+  for (let cache of loadedCaches){
+    saveCache(cache);
+    cache.rect.remove(); // Removes the rectangle from the Leaflet map
+  }
+  loadedCaches = [];
+
   const localCells = board.getCellsNearPoint(player.position);
   for (const cell of localCells) {
     if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(cell.i, cell.j);
+      loadedCaches.push( spawnCache(cell.i, cell.j) );
     }
   }
 }
