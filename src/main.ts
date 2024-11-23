@@ -1,16 +1,12 @@
-// @deno-types="npm:@types/leaflet@^1.9.14"
-
 // --------------------------IMPORTS
 import leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./style.css";
 import "./leafletWorkaround.ts";
 import luck from "./luck.ts";
-import { point, tooltip } from "npm:@types/leaflet@^1.9.14";
 import { Board } from "./board.ts";
 
-// ----------------------------Classes/interfaces
-
+// ----------------------------INTERFACES
 interface Player {
   position: leaflet.LatLng;
   coins: Coin[];
@@ -24,20 +20,17 @@ interface Cell {
 interface Coin {
   serial: string;
 }
-interface Cache { 
-  i: number,
-  j: number,
+interface Cache {
+  i: number;
+  j: number;
   coins: number;
   rect: leaflet.rectangle;
 }
-
-// Adding dictionary because TypeScript doesn't have dictionaries.
 interface Dictionary {
-  [key: string]: number[]; // keys are strings, values are arrays of numbers
+  [key: string]: number[];
 }
 
-// ---------------------------CONSTANTS and Element References
-
+// ---------------------------CONSTANTS
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
 const WORLD_ORIGIN = leaflet.latLng(0, 0);
 const startPos = OAKES_CLASSROOM;
@@ -48,50 +41,18 @@ const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
-
-let polyLineData = [[startPos.lat, startPos.lng]];
-let currentPolyLine: leaflet.Polyline | null = null; // Track the current polyline
+// ---------------------------STATE VARIABLES
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
+let realPositionMode = false;
+let polyLineData = [[startPos.lat, startPos.lng]];
+let currentPolyLine: leaflet.Polyline | null = null;
 let loadedCaches: Cache[] = [];
+let currentFrame = 0;
+
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
-let realPositionMode = false;
 
-// Set up buttons
-for (const id of ["north", "south", "east", "west"]) {
-  const button = document.getElementById(id);
-  button &&
-    button.addEventListener("click", () => {
-      player.move(id);
-    });
-}
-
-const realPositionButton = document.getElementById("sensor");
-realPositionButton && realPositionButton.addEventListener("click", () =>{
-  realPositionMode = !realPositionMode;
-  if (realPositionMode){
-    // highlight the button
-    // emit a signal that the game is in sensore mode
-    realPositionButton.classList.add("highlight");
-    document.dispatchEvent(enterSensorMode);
-  } else {
-    realPositionButton.classList.remove("highlight");
-  }
-})
-
-const resetButton = document.getElementById("reset");
-resetButton && resetButton.addEventListener("click", () => {
-  const sign = confirm("Are you sure you want to delete all of your saved data?")
-  if (sign){
-    console.log(sign)
-    localStorage.clear();
-    document.dispatchEvent(gameReset);
-  }
-})
-
-
-// ---------------------------- SET UP MAP
-
+// ---------------------------- SETUP MAP
 const map = leaflet.map(document.getElementById("map")!, {
   center: OAKES_CLASSROOM,
   zoom: GAMEPLAY_ZOOM_LEVEL,
@@ -101,7 +62,7 @@ const map = leaflet.map(document.getElementById("map")!, {
   scrollWheelZoom: false,
 });
 
-// Populate the map with a background tile layer
+// Add map tiles
 leaflet
   .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -110,8 +71,7 @@ leaflet
   })
   .addTo(map);
 
-// ---------------------------------------SET UP PLAYER AND BOARD
-
+// ---------------------------- PLAYER CONFIGURATION
 const player: Player = {
   position: startPos,
   coins: [],
@@ -136,58 +96,86 @@ const player: Player = {
   },
 };
 
-// -----------------------------------------EVENTS
-
+// --------------------------- EVENT DECLARATIONS
 const playerMoved = new CustomEvent("player-moved", {});
-document.addEventListener("player-moved", () => {
+const enterSensorMode = new CustomEvent("sensor-mode", {});
+const gameReset = new CustomEvent("game-reset", {});
 
-  
-  // Update player's marker and center the map
+// --------------------------- EVENT HANDLERS
+document.addEventListener("player-moved", () => {
   player.marker.setLatLng(player.position);
   map.panTo(player.position);
-  updateDisplayedCaches()
+  updateDisplayedCaches();
 
-  // Add the new player position to the polyline data
   polyLineData.push([player.position.lat, player.position.lng]);
 
-  // If a polyline already exists on the map, remove it
   if (currentPolyLine) {
-    currentPolyLine.remove(); // Or map.removeLayer(currentPolyLine);
+    currentPolyLine.remove();
   }
 
-  // Create or update the polyline with the new data
   currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
 });
 
-
-const enterSensorMode = new CustomEvent("sensor-mode", {});
 document.addEventListener("sensor-mode", () => {});
 
-const gameReset = new CustomEvent("game-reset", {});
 document.addEventListener("game-reset", () => {
   discardGameState();
 });
 
-// -------------------------------FUNCTIONS
+// -------------------------- BUTTON EVENT SETUP
+for (const id of ["north", "south", "east", "west"]) {
+  const button = document.getElementById(id);
+  button &&
+    button.addEventListener("click", () => {
+      if ( realPositionMode){
+        realPositionButton?.click();
+      }
+      player.move(id);
+    });
+}
 
+const realPositionButton = document.getElementById("sensor");
+realPositionButton &&
+  realPositionButton.addEventListener("click", () => {
+    realPositionMode = !realPositionMode;
+    if (realPositionMode) {
+      realPositionButton.classList.add("highlight");
+      document.dispatchEvent(enterSensorMode);
+    } else {
+      realPositionButton.classList.remove("highlight");
+    }
+  });
+
+const resetButton = document.getElementById("reset");
+resetButton &&
+  resetButton.addEventListener("click", () => {
+    const sign = confirm("Are you sure you want to delete all of your saved data?");
+    if (sign) {
+      console.log(sign);
+      localStorage.clear();
+      document.dispatchEvent(gameReset);
+    }
+  });
+
+// --------------------------- CACHE FUNCTIONS
 function toMemento(cache: Cache) {
   return cache.coins.toString();
 }
 
-function fromMemento(memento: string, i:number, j:number): Cache {
+function fromMemento(memento: string, i: number, j: number): Cache {
   return {
-    i:i,
-    j:j,
+    i: i,
+    j: j,
     coins: parseInt(memento),
     rect: null,
   };
 }
 
 function loadCache(i: number, j: number): Cache {
-  const key = getCacheKey(i,j)
+  const key = getCacheKey(i, j);
   const entry = localStorage.getItem(key);
   if (entry) {
-    return fromMemento(entry,i,j);
+    return fromMemento(entry, i, j);
   }
   return generateCache(i, j);
 }
@@ -196,25 +184,23 @@ function generateCache(i: number, j: number): Cache {
   const pointValue = Math.floor(
     luck([i, j, "initialValue"].toString()) * 100
   );
-  const cache = {
+  return {
     i: i,
     j: j,
     coins: pointValue,
     rect: null,
   };
-  return cache;
 }
 
 function saveCache(cache: Cache) {
-  const key = getCacheKey(cache.i,cache.j)
+  const key = getCacheKey(cache.i, cache.j);
   localStorage.setItem(key, toMemento(cache));
 }
-
 
 function spawnCache(i: number, j: number) {
   const cache = loadCache(i, j);
   makeCacheRect(i, j, cache);
-  return (cache);
+  return cache;
 }
 
 function makeCacheRect(i: number, j: number, cache: Cache) {
@@ -226,11 +212,10 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
   const rect = leaflet.rectangle(bounds);
   cache.rect = rect;
   rect.addTo(map);
-  // Handle interactions with the cache
+
   rect.bindPopup(() => {
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
-    // Clicking the button decrements the cache's value and increments the player's points
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
@@ -238,14 +223,8 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
           return;
         }
         cache.coins -= 1;
-
         const coin: Coin = {
-          serial:
-            i.toString() +
-            ":" +
-            j.toString() +
-            "#" +
-            cache.coins.toString(),
+          serial: i.toString() + ":" + j.toString() + "#" + cache.coins.toString(),
         };
         player.coins.push(coin);
         savePlayerCoins();
@@ -258,101 +237,93 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
   });
 }
 
-
+// --------------------------- GAME STATE FUNCTIONS
 function discardGameState() {
-  // Remove current caches 
   player.coins = [];
   statusPanel.innerHTML = "No points yet...";
-  for (const cache of loadedCaches){
-    cache.rect.remove(); // Removes the rectangle from the Leaflet map
-  }
+  loadedCaches.forEach((cache) => cache.rect.remove());
   loadedCaches = [];
-
-  const localCells = board.getCellsNearPoint(player.position);
-  for (const cell of localCells) {
-    if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      loadedCaches.push( spawnCache(cell.i, cell.j) );
-    }
-  }
-
-
-  // Reset polyline data and remove any existing polyline
   polyLineData = [[player.position.lat, player.position.lng]];
+  updateDisplayedCaches();
   if (currentPolyLine) {
-    currentPolyLine.remove(); // Remove the polyline from the map
+    currentPolyLine.remove();
     currentPolyLine = null;
   }
 }
 
 function updateDisplayedCaches() {
-  // Remove current caches 
-  for (let cache of loadedCaches){
+  loadedCaches.forEach((cache) => {
     saveCache(cache);
-    cache.rect.remove(); // Removes the rectangle from the Leaflet map
-  }
+    cache.rect.remove();
+  });
   loadedCaches = [];
-
   const localCells = board.getCellsNearPoint(player.position);
-  for (const cell of localCells) {
+  localCells.forEach((cell) => {
     if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      loadedCaches.push( spawnCache(cell.i, cell.j) );
+      loadedCaches.push(spawnCache(cell.i, cell.j));
     }
-  }
+  });
 }
 
-
-function loadPlayerCoins(){
-  for ( let i = 0;true;i++){
+// --------------------------- PLAYER COINS FUNCTIONS
+function loadPlayerCoins() {
+  for (let i = 0; true; i++) {
     const key = getCoinKey(i);
     const coin = localStorage.getItem(key);
-    if (!coin){ 
-      const statusPanel = document.getElementById("statusPanel");
-      if (statusPanel)statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+    if (!coin) {
+      statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       break;
     }
-    player.coins.push({serial:coin});
+    player.coins.push({ serial: coin });
   }
 }
 
-function savePlayerCoins(){
-  for ( let i = 0; i <player.coins.length;i++){
+function savePlayerCoins() {
+  player.coins.forEach((coin, i) => {
     const key = getCoinKey(i);
-    localStorage.setItem(key, player.coins[i].serial);
-  }
+    localStorage.setItem(key, coin.serial);
+  });
 }
 
-function getCoinKey(i: number){
-  return `coin${i}`
+// --------------------------- UTILITY FUNCTIONS
+function getCoinKey(i: number) {
+  return `coin${i}`;
 }
 
-function getCacheKey(i:number,j:number): string{
-  return `${i}:${j}`
+function getCacheKey(i: number, j: number): string {
+  return `${i}:${j}`;
 }
 
-function getDistanceBetween(ax: number, ay:number, bx:number, by:number){
-  // cheating this a little
-  // im just gonna return which ever distance is bigger on x or y, rather than pythagorean theoreming this 
+function getDistanceBetween(ax: number, ay: number, bx: number, by: number) {
   const xDiff = Math.abs(ax - bx);
   const yDiff = Math.abs(ay - by);
-  return xDiff>yDiff? xDiff:yDiff;
+  return Math.max(xDiff, yDiff);
 }
 
+// -------------------------- MAIN GAME LOOP INIT
+loadPlayerCoins();
+polyLineData.push([player.position.lat, player.position.lng]);
+currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
+updateDisplayedCaches();
+update();
 
-let currentFrame = 0;
-function update(): void{
+function update(): void {
   currentFrame++;
-  // This is a funny way of doing this but i figured its pretty expensive to do it every frame. 
-  if (currentFrame > 10){
-    currentFrame = currentFrame%10;
-    if ( realPositionMode ){
+  if (currentFrame > 10) {
+    currentFrame = currentFrame % 10;
+    if (realPositionMode) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const trueLat = position.coords.latitude; // Latitude of the player
-          const trueLng = position.coords.longitude; // Longitude of the player
-          const offset = getDistanceBetween(player.position.lat, player.position.lng, trueLat, trueLng)
-
-          if ( offset > TILE_DEGREES/2){
-            player.position = leaflet.latLng(trueLat,trueLng);
+          const trueLat = position.coords.latitude;
+          const trueLng = position.coords.longitude;
+          const offset = getDistanceBetween(
+            player.position.lat,
+            player.position.lng,
+            trueLat,
+            trueLng
+          );
+          if (offset > TILE_DEGREES / 2) {
+            player.position = leaflet.latLng(trueLat, trueLng);
             document.dispatchEvent(playerMoved);
           }
         },
@@ -364,14 +335,3 @@ function update(): void{
   }
   requestAnimationFrame(update);
 }
-
-
-
-// The actual play cycle
-loadPlayerCoins();
-polyLineData.push([player.position.lat, player.position.lng]); // Starting position
-currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
-updateDisplayedCaches();
-update();
-
-
