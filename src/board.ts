@@ -48,7 +48,7 @@ export class Board {
         const resultCells: Cell[] = [];
         const originCell = this.getCellForPoint(point);
         for ( let i = -this.tileVisibilityRadius; i <= this.tileVisibilityRadius; i++){
-            for ( let j = -this.tileVisibilityRadius; j <= this.tileVisibilityRadius; j++){
+            for ( let j = -this.tileVisibilityRadius -1 ; j <= this.tileVisibilityRadius -1 ; j++){ // Bandaid fix here <----
                 resultCells.push(this.getCanonicalCell({
                     i: originCell.i + i,
                     j: originCell.j+ j
