@@ -48,6 +48,9 @@ const TILE_DEGREES = 1e-4;
 const NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
+
+let polyLineData = [[startPos.lat, startPos.lng]];
+let currentPolyLine: leaflet.Polyline | null = null; // Track the current polyline
 const board = new Board(TILE_DEGREES, NEIGHBORHOOD_SIZE);
 let loadedCaches: Cache[] = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
@@ -137,9 +140,23 @@ const player: Player = {
 
 const playerMoved = new CustomEvent("player-moved", {});
 document.addEventListener("player-moved", () => {
+
+  
+  // Update player's marker and center the map
   player.marker.setLatLng(player.position);
   map.panTo(player.position);
-  updateDisplayedCaches();
+  updateDisplayedCaches()
+
+  // Add the new player position to the polyline data
+  polyLineData.push([player.position.lat, player.position.lng]);
+
+  // If a polyline already exists on the map, remove it
+  if (currentPolyLine) {
+    currentPolyLine.remove(); // Or map.removeLayer(currentPolyLine);
+  }
+
+  // Create or update the polyline with the new data
+  currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
 });
 
 
@@ -256,6 +273,14 @@ function discardGameState() {
       loadedCaches.push( spawnCache(cell.i, cell.j) );
     }
   }
+
+
+  // Reset polyline data and remove any existing polyline
+  polyLineData = [[player.position.lat, player.position.lng]];
+  if (currentPolyLine) {
+    currentPolyLine.remove(); // Remove the polyline from the map
+    currentPolyLine = null;
+  }
 }
 
 function updateDisplayedCaches() {
@@ -318,6 +343,8 @@ function update(): void{
 
 
 // The actual play cycle
+polyLineData.push([player.position.lat, player.position.lng]); // Starting position
+currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
 updateDisplayedCaches();
 update();
 
