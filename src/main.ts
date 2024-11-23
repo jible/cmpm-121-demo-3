@@ -154,8 +154,13 @@ resetButton &&
       console.log(sign);
       localStorage.clear();
       document.dispatchEvent(gameReset);
+      if (coinCollection){
+        coinCollection.innerHTML = "Coin Collection: <br>";
+      }
     }
   });
+
+  const coinCollection = document.getElementById("coinCollection");
 
 // --------------------------- CACHE FUNCTIONS
 function toMemento(cache: Cache) {
@@ -192,6 +197,8 @@ function generateCache(i: number, j: number): Cache {
   };
 }
 
+
+
 function saveCache(cache: Cache) {
   const key = getCacheKey(cache.i, cache.j);
   localStorage.setItem(key, toMemento(cache));
@@ -227,7 +234,7 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
           serial: i.toString() + ":" + j.toString() + "#" + cache.coins.toString(),
         };
         player.coins.push(coin);
-        savePlayerCoins();
+        savePlayerCoin();
         popupDiv.querySelector<HTMLSpanElement>(
           "#value"
         )!.textContent = cache.coins.toString();
@@ -269,20 +276,31 @@ function updateDisplayedCaches() {
 function loadPlayerCoins() {
   for (let i = 0; true; i++) {
     const key = getCoinKey(i);
-    const coin = localStorage.getItem(key);
-    if (!coin) {
+    const serial = localStorage.getItem(key);
+    if (!serial) {
       statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       break;
     }
-    player.coins.push({ serial: coin });
+    const coin = {serial: serial}
+    addCoinToDisplay(coin)
+    player.coins.push(coin);
   }
 }
 
-function savePlayerCoins() {
-  player.coins.forEach((coin, i) => {
-    const key = getCoinKey(i);
-    localStorage.setItem(key, coin.serial);
-  });
+function savePlayerCoin() {
+  const index = player.coins.length-1
+  const coin = player.coins[index]
+  const key = getCoinKey(index);
+  localStorage.setItem(key, coin.serial);
+  addCoinToDisplay(coin);
+}
+
+function addCoinToDisplay(coin:Coin){
+  if (coinCollection){
+    const div = document.createElement("div");
+    div.innerText = "Coin: " + coin.serial;
+    coinCollection.appendChild(div);
+  }
 }
 
 // --------------------------- UTILITY FUNCTIONS
@@ -301,6 +319,9 @@ function getDistanceBetween(ax: number, ay: number, bx: number, by: number) {
 }
 
 // -------------------------- MAIN GAME LOOP INIT
+if (coinCollection){
+  coinCollection.innerHTML = "Coin Collection: <br>"
+}
 loadPlayerCoins();
 polyLineData.push([player.position.lat, player.position.lng]);
 currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
