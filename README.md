@@ -2,4 +2,4 @@
 
 This is my virutal geocoin management app! It retains state across sessions!
 
-I worked on this with Rozy Dixon!
+I referenced Rozy Dixon and Jack Sim's code!
