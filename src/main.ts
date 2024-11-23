@@ -53,6 +53,7 @@ const cacheCollection: Map<string, string> = new Map();
 let loadedCaches: Cache[] = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
+let realPositionMode = false;
 
 // Set up buttons
 for (const id of ["north", "south", "east", "west"]) {
@@ -62,6 +63,20 @@ for (const id of ["north", "south", "east", "west"]) {
       player.move(id);
     });
 }
+
+const realPositionButton = document.getElementById("sensor");
+realPositionButton && realPositionButton.addEventListener("click", () =>{
+  realPositionMode = !realPositionMode;
+  if (realPositionMode){
+    // highlight the button
+    // emit a signal that the game is in sensore mode
+    realPositionButton.classList.add("highlight");
+    document.dispatchEvent(enterSensorMode);
+  } else {
+    realPositionButton.classList.remove("highlight");
+  }
+})
+
 
 // ---------------------------- SET UP MAP
 
@@ -118,6 +133,11 @@ document.addEventListener("player-moved", () => {
   updateDisplayedCaches();
 });
 
+
+const enterSensorMode = new CustomEvent("sensor-mode", {});
+document.addEventListener("sensor-mode", () => {
+  
+});
 // -------------------------------FUNCTIONS
 
 function toMemento(cache: Cache) {
@@ -134,7 +154,7 @@ function fromMemento(memento: string, i:number, j:number): Cache {
 }
 
 function loadCache(i: number, j: number): Cache {
-  const key = i.toString() + ":" + j.toString();
+  const key = getCacheKey(i,j)
   const entry = cacheCollection.get(key);
   if (entry) {
     return fromMemento(entry,i,j);
@@ -156,7 +176,7 @@ function generateCache(i: number, j: number): Cache {
 }
 
 function saveCache(cache: Cache) {
-  const key = cache.i.toString() + ":" + cache.j.toString();
+  const key = getCacheKey(cache.i,cache.j)
   cacheCollection.set(key, toMemento(cache));
 }
 
@@ -224,5 +244,57 @@ function updateDisplayedCaches() {
   }
 }
 
-// Add caches to the map
+
+function getCacheKey(i:number,j:number): string{
+  return `${i}:${j}`
+}
+
+function getDistanceBetween(ax: number, ay:number, bx:number, by:number){
+  // cheating this a little
+  // im just gonna return which ever distance is bigger on x or y, rather than pythagorean theoreming this 
+  const xDiff = Math.abs(ax - bx);
+  const yDiff = Math.abs(ay - by);
+  return xDiff>yDiff? xDiff:yDiff;
+}
+
+
+let currentFrame = 0;
+function update(): void{
+  currentFrame++;
+  // This is a funny way of doing this but i figured its pretty expensive to do it every frame. 
+  if (currentFrame > 10){
+    currentFrame = currentFrame%10;
+    console.log("Frame updated");
+    if ( realPositionMode ){
+      // get player position. If it is more than half of a cell away from the current position,
+      // the position there and emit update position signal
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const trueLat = position.coords.latitude; // Latitude of the player
+          const trueLng = position.coords.longitude; // Longitude of the player
+          const offset = getDistanceBetween(player.position.lat, player.position.lng, trueLat, trueLng)
+
+          if ( offset > TILE_DEGREES/2){
+            player.position = leaflet.latLng(trueLat,trueLng);
+            document.dispatchEvent(playerMoved);
+          }
+
+
+        },
+        (error) => {
+          console.error("Error fetching location", error);
+        }
+      );
+
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+
+
+// The actual play cycle
 updateDisplayedCaches();
+update();
+
+
