@@ -234,10 +234,9 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
           serial: i.toString() + ":" + j.toString() + "#" + cache.coins.toString(),
         };
         player.coins.push(coin);
-        savePlayerCoin();
-        popupDiv.querySelector<HTMLSpanElement>(
-          "#value"
-        )!.textContent = cache.coins.toString();
+        saveCache(cache);
+        saveLatestCoin();
+        popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache.coins.toString();
         statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       });
     return popupDiv;
@@ -287,7 +286,7 @@ function loadPlayerCoins() {
   }
 }
 
-function savePlayerCoin() {
+function saveLatestCoin() {
   const index = player.coins.length-1
   const coin = player.coins[index]
   const key = getCoinKey(index);
