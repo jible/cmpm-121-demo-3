@@ -86,10 +86,8 @@ const player: Player = {
       west: [-1, 0],
     };
     const currentPosition = player.position;
-    const lat =
-      currentPosition.lat + dirToVector[direction][1] * TILE_DEGREES;
-    const lng =
-      currentPosition.lng + dirToVector[direction][0] * TILE_DEGREES;
+    const lat = currentPosition.lat + dirToVector[direction][1] * TILE_DEGREES;
+    const lng = currentPosition.lng + dirToVector[direction][0] * TILE_DEGREES;
 
     player.position = leaflet.latLng(lat, lng);
     document.dispatchEvent(playerMoved);
@@ -127,7 +125,7 @@ for (const id of ["north", "south", "east", "west"]) {
   const button = document.getElementById(id);
   button &&
     button.addEventListener("click", () => {
-      if ( realPositionMode){
+      if (realPositionMode) {
         realPositionButton?.click();
       }
       player.move(id);
@@ -149,18 +147,20 @@ realPositionButton &&
 const resetButton = document.getElementById("reset");
 resetButton &&
   resetButton.addEventListener("click", () => {
-    const sign = confirm("Are you sure you want to delete all of your saved data?");
+    const sign = confirm(
+      "Are you sure you want to delete all of your saved data?",
+    );
     if (sign) {
       console.log(sign);
       localStorage.clear();
       document.dispatchEvent(gameReset);
-      if (coinCollection){
+      if (coinCollection) {
         coinCollection.innerHTML = "Coin Collection: <br>";
       }
     }
   });
 
-  const coinCollection = document.getElementById("coinCollection");
+const coinCollection = document.getElementById("coinCollection");
 
 // --------------------------- CACHE FUNCTIONS
 function toMemento(cache: Cache) {
@@ -187,7 +187,7 @@ function loadCache(i: number, j: number): Cache {
 
 function generateCache(i: number, j: number): Cache {
   const pointValue = Math.floor(
-    luck([i, j, "initialValue"].toString()) * 100
+    luck([i, j, "initialValue"].toString()) * 100,
   );
   return {
     i: i,
@@ -196,8 +196,6 @@ function generateCache(i: number, j: number): Cache {
     rect: null,
   };
 }
-
-
 
 function saveCache(cache: Cache) {
   const key = getCacheKey(cache.i, cache.j);
@@ -222,7 +220,8 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
 
   rect.bindPopup(() => {
     const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
+    popupDiv.innerHTML =
+      `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
@@ -231,12 +230,14 @@ function makeCacheRect(i: number, j: number, cache: Cache) {
         }
         cache.coins -= 1;
         const coin: Coin = {
-          serial: i.toString() + ":" + j.toString() + "#" + cache.coins.toString(),
+          serial: i.toString() + ":" + j.toString() + "#" +
+            cache.coins.toString(),
         };
         player.coins.push(coin);
         saveCache(cache);
         saveLatestCoin();
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache.coins.toString();
+        popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache
+          .coins.toString();
         statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       });
     return popupDiv;
@@ -280,22 +281,22 @@ function loadPlayerCoins() {
       statusPanel.innerHTML = `${player.coins.length} points accumulated`;
       break;
     }
-    const coin = {serial: serial}
-    addCoinToDisplay(coin)
+    const coin = { serial: serial };
+    addCoinToDisplay(coin);
     player.coins.push(coin);
   }
 }
 
 function saveLatestCoin() {
-  const index = player.coins.length-1
-  const coin = player.coins[index]
+  const index = player.coins.length - 1;
+  const coin = player.coins[index];
   const key = getCoinKey(index);
   localStorage.setItem(key, coin.serial);
   addCoinToDisplay(coin);
 }
 
-function addCoinToDisplay(coin:Coin){
-  if (coinCollection){
+function addCoinToDisplay(coin: Coin) {
+  if (coinCollection) {
     const div = document.createElement("div");
     div.innerText = "Coin: " + coin.serial;
     coinCollection.appendChild(div);
@@ -318,8 +319,8 @@ function getDistanceBetween(ax: number, ay: number, bx: number, by: number) {
 }
 
 // -------------------------- MAIN GAME LOOP INIT
-if (coinCollection){
-  coinCollection.innerHTML = "Coin Collection: <br>"
+if (coinCollection) {
+  coinCollection.innerHTML = "Coin Collection: <br>";
 }
 loadPlayerCoins();
 polyLineData.push([player.position.lat, player.position.lng]);
@@ -340,7 +341,7 @@ function update(): void {
             player.position.lat,
             player.position.lng,
             trueLat,
-            trueLng
+            trueLng,
           );
           if (offset > TILE_DEGREES / 2) {
             player.position = leaflet.latLng(trueLat, trueLng);
@@ -349,7 +350,7 @@ function update(): void {
         },
         (error) => {
           console.error("Error fetching location", error);
-        }
+        },
       );
     }
   }
