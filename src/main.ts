@@ -13,7 +13,10 @@ class EventManager {
   }
 
   private initializeEventListeners() {
-    document.addEventListener("player-moved", this.handlePlayerMoved.bind(this));
+    document.addEventListener(
+      "player-moved",
+      this.handlePlayerMoved.bind(this),
+    );
     document.addEventListener("sensor-mode", this.handleSensorMode.bind(this));
     document.addEventListener("game-reset", this.handleGameReset.bind(this));
   }
@@ -23,15 +26,17 @@ class EventManager {
     player.marker.setLatLng(player.position);
     map.panTo(player.position);
     updateDisplayedCaches();
-    
+
     // Continue updating polyline data
     polyLineData.push([player.position.lat, player.position.lng]);
-    
+
     if (currentPolyLine) {
       currentPolyLine.remove();
     }
 
-    currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
+    currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(
+      map,
+    );
   }
 
   private handleSensorMode() {
