@@ -64,7 +64,7 @@ interface Coin {
 interface Cache {
   i: number;
   j: number;
-  coins: number;
+  coins: Coin[]; // Change to Array of Coins
   rect: leaflet.rectangle;
 }
 interface Dictionary {
@@ -194,15 +194,6 @@ function toMemento(cache: Cache) {
   return cache.coins.toString();
 }
 
-function fromMemento(memento: string, i: number, j: number): Cache {
-  return {
-    i: i,
-    j: j,
-    coins: parseInt(memento),
-    rect: null,
-  };
-}
-
 function loadCache(i: number, j: number): Cache {
   const key = getCacheKey(i, j);
   const entry = localStorage.getItem(key);
@@ -212,14 +203,26 @@ function loadCache(i: number, j: number): Cache {
   return generateCache(i, j);
 }
 
-function generateCache(i: number, j: number): Cache {
-  const pointValue = Math.floor(
-    luck([i, j, "initialValue"].toString()) * 100,
-  );
+function fromMemento(memento: string, i: number, j: number): Cache {
+  const coinsArray = memento.split(",").map((serial) => ({ serial })); // Generate coins from memento
   return {
-    i: i,
-    j: j,
-    coins: pointValue,
+    i,
+    j,
+    coins: coinsArray, // Use the coins array
+    rect: null,
+  };
+}
+
+function generateCache(i: number, j: number): Cache {
+  const pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+  const coinsArray = Array.from(
+    { length: pointValue },
+    (_, index) => ({ serial: `${i}:${j}#${index}` }),
+  ); // Generate coins based on point value
+  return {
+    i,
+    j,
+    coins: coinsArray, // Assign coins array in the cache
     rect: null,
   };
 }
@@ -256,27 +259,54 @@ function bindCachePopup(rect: leaflet.Rectangle, cache: Cache) {
   rect.bindPopup(() => {
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-      <div>There is a cache here at "${cache.i},${cache.j}". It has value <span id="value">${cache.coins}</span>.</div>
-      <button id="poke">poke</button>`;
+          <div>There is a cache here at "${cache.i},${cache.j}". It has value <span id="value">${cache.coins.length}</span> coins.</div>
+          <button id="withdraw">Withdraw</button>
+          <button id="deposit">Deposit</button>`;
 
-    popupDiv
-      .querySelector<HTMLButtonElement>("#poke")!
-      .addEventListener("click", () => {
-        if (cache.coins <= 0) return;
-        cache.coins -= 1;
-        const coin: Coin = {
-          serial: `${cache.i}:${cache.j}#${cache.coins}`,
-        };
-        player.coins.push(coin);
-        saveCache(cache);
+    // Event listener for withdraw button
+    popupDiv.querySelector<HTMLButtonElement>("#withdraw")!.addEventListener(
+      "click",
+      () => {
+        if (cache.coins.length <= 0) return; // Check if there are coins in the cache
 
-        // Update the pop-up content immediately
-        const valueSpan = popupDiv.querySelector<HTMLSpanElement>("#value")!;
-        valueSpan.textContent = cache.coins.toString();
-        updatePointsText();
-        saveLatestCoin();
-        updateCoinCollectionDisplay();
-      });
+        // Withdraw a coin from the cache
+        const withdrawnCoin = cache.coins.pop(); // Remove the last coin from the cache
+
+        if (withdrawnCoin) {
+          // Add the retrieved coin to the player's collection
+          player.coins.push(withdrawnCoin);
+          saveCache(cache); // Save updated cache
+
+          // Update the pop-up content immediately
+          const valueSpan = popupDiv.querySelector<HTMLSpanElement>("#value")!;
+          valueSpan.textContent = cache.coins.length.toString();
+          updatePointsText();
+          saveLatestCoin();
+          updateCoinCollectionDisplay();
+        }
+      },
+    );
+
+    popupDiv.querySelector<HTMLButtonElement>("#deposit")!.addEventListener(
+      "click",
+      () => {
+        if (player.coins.length === 0) return; // No coins to deposit
+
+        const lastCoin = player.coins.pop(); // Get the last coin from the player's collection
+
+        if (lastCoin) {
+          cache.coins.push(lastCoin); // Add the coin back into the cache's coins array
+          removeLastCoinFromLocalStorage(); // Remove the last coin from local storage
+          saveCache(cache); // Save the updated cache
+
+          // Update the pop-up content immediately
+          const valueSpan = popupDiv.querySelector<HTMLSpanElement>("#value")!;
+          valueSpan.textContent = cache.coins.length.toString();
+          updatePointsText();
+          updateCoinCollectionDisplay();
+        }
+      },
+    );
 
     return popupDiv;
   });
@@ -316,6 +346,12 @@ function updateDisplayedCaches() {
 }
 
 // --------------------------- PLAYER COINS FUNCTIONS
+function removeLastCoinFromLocalStorage() {
+  const index = player.coins.length; // This will represent the last coin's index.
+  const key = getCoinKey(index); // Get the key for the last coin
+  localStorage.removeItem(key); // Remove the coin from local storage
+}
+
 function updatePointsText() {
   statusPanel.innerHTML = `${player.coins.length} points accumulated`;
 }
