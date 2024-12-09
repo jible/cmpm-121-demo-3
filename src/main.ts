@@ -231,44 +231,60 @@ function saveCache(cache: Cache) {
 
 function spawnCache(i: number, j: number) {
   const cache = loadCache(i, j);
-  makeCacheRect(i, j, cache);
+  renderCache(cache);
   return cache;
 }
 
-function makeCacheRect(i: number, j: number, cache: Cache) {
+function addCacheRectangle(cache: Cache) {
   const origin = WORLD_ORIGIN;
   const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
+    [origin.lat + cache.i * TILE_DEGREES, origin.lng + cache.j * TILE_DEGREES],
+    [
+      origin.lat + (cache.i + 1) * TILE_DEGREES,
+      origin.lng + (cache.j + 1) * TILE_DEGREES,
+    ],
   ]);
+
   const rect = leaflet.rectangle(bounds);
-  cache.rect = rect;
+  cache.rect = rect; // Store the rectangle in the cache object
   rect.addTo(map);
 
+  return rect; // Return the rectangle for further manipulation
+}
+
+function bindCachePopup(rect: leaflet.Rectangle, cache: Cache) {
   rect.bindPopup(() => {
     const popupDiv = document.createElement("div");
-    popupDiv.innerHTML =
-      `<div>There is a cache here at "${i},${j}". It has value <span id="value">${cache.coins}</span>.</div><button id="poke">poke</button>`;
+    popupDiv.innerHTML = `
+      <div>There is a cache here at "${cache.i},${cache.j}". It has value <span id="value">${cache.coins}</span>.</div>
+      <button id="poke">poke</button>`;
+
     popupDiv
       .querySelector<HTMLButtonElement>("#poke")!
       .addEventListener("click", () => {
-        if (cache.coins <= 0) {
-          return;
-        }
+        if (cache.coins <= 0) return;
         cache.coins -= 1;
         const coin: Coin = {
-          serial: i.toString() + ":" + j.toString() + "#" +
-            cache.coins.toString(),
+          serial: `${cache.i}:${cache.j}#${cache.coins}`,
         };
         player.coins.push(coin);
         saveCache(cache);
+
+        // Update the pop-up content immediately
+        const valueSpan = popupDiv.querySelector<HTMLSpanElement>("#value")!;
+        valueSpan.textContent = cache.coins.toString();
+        updatePointsText();
         saveLatestCoin();
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.textContent = cache
-          .coins.toString();
-        statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+        updateCoinCollectionDisplay();
       });
+
     return popupDiv;
   });
+}
+
+function renderCache(cache: Cache) {
+  const rect = addCacheRectangle(cache); // Add rectangle
+  bindCachePopup(rect, cache); // Bind the popup to the rectangle
 }
 
 // --------------------------- GAME STATE FUNCTIONS
@@ -300,12 +316,29 @@ function updateDisplayedCaches() {
 }
 
 // --------------------------- PLAYER COINS FUNCTIONS
+function updatePointsText() {
+  statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+}
+
+function updateCoinCollectionDisplay() {
+  if (!coinCollection) {
+    console.error("no coin collection");
+    return;
+  }
+  coinCollection.innerHTML = "Coin Collection: <br>"; // Clear existing display
+  player.coins.forEach((coin) => {
+    const div = document.createElement("div");
+    div.innerText = "Coin: " + coin.serial;
+    coinCollection.appendChild(div);
+  });
+}
+
 function loadPlayerCoins() {
   for (let i = 0; true; i++) {
     const key = getCoinKey(i);
     const serial = localStorage.getItem(key);
     if (!serial) {
-      statusPanel.innerHTML = `${player.coins.length} points accumulated`;
+      updatePointsText();
       break;
     }
     const coin = { serial: serial };
@@ -352,6 +385,7 @@ if (coinCollection) {
 loadPlayerCoins();
 polyLineData.push([player.position.lat, player.position.lng]);
 currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
+updateCoinCollectionDisplay();
 updateDisplayedCaches();
 update();
 
