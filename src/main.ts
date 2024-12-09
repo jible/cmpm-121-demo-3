@@ -6,7 +6,44 @@ import "./leafletWorkaround.ts";
 import luck from "./luck.ts";
 import { Board } from "./board.ts";
 
-// ----------------------------INTERFACES
+// ----------------------------INTERFACES and CLASSES
+class EventManager {
+  constructor() {
+    this.initializeEventListeners();
+  }
+
+  private initializeEventListeners() {
+    document.addEventListener("player-moved", this.handlePlayerMoved.bind(this));
+    document.addEventListener("sensor-mode", this.handleSensorMode.bind(this));
+    document.addEventListener("game-reset", this.handleGameReset.bind(this));
+  }
+
+  private handlePlayerMoved() {
+    // Logic to update player's marker, pan map, etc.
+    player.marker.setLatLng(player.position);
+    map.panTo(player.position);
+    updateDisplayedCaches();
+    
+    // Continue updating polyline data
+    polyLineData.push([player.position.lat, player.position.lng]);
+    
+    if (currentPolyLine) {
+      currentPolyLine.remove();
+    }
+
+    currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
+  }
+
+  private handleSensorMode() {
+    // Implement any logic related to sensor mode here
+    // This might involve toggling UI elements or updating states
+  }
+
+  private handleGameReset() {
+    discardGameState();
+  }
+}
+
 interface Player {
   position: leaflet.LatLng;
   coins: Coin[];
@@ -85,24 +122,7 @@ const enterSensorMode = new CustomEvent("sensor-mode", {});
 const gameReset = new CustomEvent("game-reset", {});
 
 // --------------------------- EVENT HANDLERS
-document.addEventListener("player-moved", () => {
-  player.marker.setLatLng(player.position);
-  map.panTo(player.position);
-  updateDisplayedCaches();
-
-  polyLineData.push([player.position.lat, player.position.lng]);
-  if (currentPolyLine) {
-    currentPolyLine.remove();
-  }
-
-  currentPolyLine = leaflet.polyline(polyLineData, { color: "red" }).addTo(map);
-});
-
-document.addEventListener("sensor-mode", () => {});
-
-document.addEventListener("game-reset", () => {
-  discardGameState();
-});
+const _eventManager = new EventManager();
 
 // -------------------------- BUTTON EVENT SETUP
 const moveButtons = ["north", "south", "east", "west"];
