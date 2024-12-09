@@ -143,7 +143,7 @@ resetButton &&
 
 const coinCollection = document.getElementById("coinCollection");
 
-// --------------------------- PLAYER FUNCTIONS 
+// --------------------------- PLAYER FUNCTIONS
 function handlePlayerMovement(player: Player, direction: string) {
   const dirToVector: Dictionary = {
     north: [0, 1],
@@ -163,7 +163,6 @@ function handlePlayerMovement(player: Player, direction: string) {
   // Dispatch the player-moved event
   document.dispatchEvent(playerMoved);
 }
-
 
 // --------------------------- CACHE FUNCTIONS
 function toMemento(cache: Cache) {
