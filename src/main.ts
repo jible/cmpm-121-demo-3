@@ -11,7 +11,6 @@ interface Player {
   position: leaflet.LatLng;
   coins: Coin[];
   marker: leaflet.marker;
-  move(direction: string): void;
 }
 interface Cell {
   i: number;
@@ -78,20 +77,6 @@ const player: Player = {
   marker: leaflet.marker(startPos, {
     tooltip: "That's you!",
   }).addTo(map),
-  move(direction) {
-    const dirToVector: Dictionary = {
-      north: [0, 1],
-      south: [0, -1],
-      east: [1, 0],
-      west: [-1, 0],
-    };
-    const currentPosition = player.position;
-    const lat = currentPosition.lat + dirToVector[direction][1] * TILE_DEGREES;
-    const lng = currentPosition.lng + dirToVector[direction][0] * TILE_DEGREES;
-
-    player.position = leaflet.latLng(lat, lng);
-    document.dispatchEvent(playerMoved);
-  },
 };
 
 // --------------------------- EVENT DECLARATIONS
@@ -106,7 +91,6 @@ document.addEventListener("player-moved", () => {
   updateDisplayedCaches();
 
   polyLineData.push([player.position.lat, player.position.lng]);
-
   if (currentPolyLine) {
     currentPolyLine.remove();
   }
@@ -121,16 +105,13 @@ document.addEventListener("game-reset", () => {
 });
 
 // -------------------------- BUTTON EVENT SETUP
-for (const id of ["north", "south", "east", "west"]) {
+const moveButtons = ["north", "south", "east", "west"];
+moveButtons.forEach((id) => {
   const button = document.getElementById(id);
-  button &&
-    button.addEventListener("click", () => {
-      if (realPositionMode) {
-        realPositionButton?.click();
-      }
-      player.move(id);
-    });
-}
+  button && button.addEventListener("click", () => {
+    handlePlayerMovement(player, id);
+  });
+});
 
 const realPositionButton = document.getElementById("sensor");
 realPositionButton &&
@@ -161,6 +142,28 @@ resetButton &&
   });
 
 const coinCollection = document.getElementById("coinCollection");
+
+// --------------------------- PLAYER FUNCTIONS 
+function handlePlayerMovement(player: Player, direction: string) {
+  const dirToVector: Dictionary = {
+    north: [0, 1],
+    south: [0, -1],
+    east: [1, 0],
+    west: [-1, 0],
+  };
+
+  // Calculate the new position based on the direction
+  const currentPosition = player.position;
+  const lat = currentPosition.lat + dirToVector[direction][1] * TILE_DEGREES;
+  const lng = currentPosition.lng + dirToVector[direction][0] * TILE_DEGREES;
+
+  // Update the player's position
+  player.position = leaflet.latLng(lat, lng);
+
+  // Dispatch the player-moved event
+  document.dispatchEvent(playerMoved);
+}
+
 
 // --------------------------- CACHE FUNCTIONS
 function toMemento(cache: Cache) {
